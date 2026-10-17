@@ -157,10 +157,10 @@ $$
 The normalized innovation squared statistic is
 
 $$
-\operatorname{NIS}_k=\mathbf{y}_k^{\mathsf T}\mathbf{S}_k^{-1}\mathbf{y}_k.
+\mathrm{NIS}_k=\mathbf{y}_k^{\mathsf T}\mathbf{S}_k^{-1}\mathbf{y}_k.
 $$
 
-A measurement update is skipped when $\operatorname{NIS}_k>13.82$ after the initial four samples. This threshold approximates the 99.9th percentile of a chi-square distribution with two degrees of freedom, **assuming the model and noise statistics are correctly specified**. A high NIS indicates measurement-model inconsistency; it does not identify the physical cause.
+A measurement update is skipped when $\mathrm{NIS}_k>13.82$ after the initial four samples. This threshold approximates the 99.9th percentile of a chi-square distribution with two degrees of freedom, **assuming the model and noise statistics are correctly specified**. A high NIS indicates measurement-model inconsistency; it does not identify the physical cause.
 
 ### 5. Short-horizon prediction
 
