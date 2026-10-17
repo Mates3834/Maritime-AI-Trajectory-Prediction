@@ -1,215 +1,319 @@
-[README-With-Results.md](https://github.com/user-attachments/files/33597767/README-With-Results.md)
+[README-Maritime-Detailed.md](https://github.com/user-attachments/files/33597823/README-Maritime-Detailed.md)
 <div align="center">
 
 # 🌊 Maritime AI — Vessel Trajectory Intelligence
 
-### Kalman State Estimation · Short-Horizon Forecasting · Maritime Anomaly Screening
+### Vessel Tracking · Kalman State Estimation · 60-Second Forecasting · Innovation-Based Screening
 
-**A reproducible Python research prototype for understanding vessel motion from noisy AIS-like observations.**
+**A reproducible Python research prototype for maritime motion estimation and short-horizon trajectory prediction from noisy AIS-like observations.**
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white) ![Method](https://img.shields.io/badge/Method-Kalman_Filter-555555) ![Data](https://img.shields.io/badge/Data-Synthetic-orange) ![License](https://img.shields.io/badge/License-MIT-blue)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white) ![Method](https://img.shields.io/badge/Estimator-Kalman_Filter-0A7F80) ![Data](https://img.shields.io/badge/Dataset-Synthetic-orange) ![Tests](https://img.shields.io/badge/Tests-3_passing-2ea44f) ![License](https://img.shields.io/badge/License-MIT-blue)
 
-![Vessel tracking overview](01_trajectory_tracking.png)
+![Vessel trajectory tracking overview](01_trajectory_tracking.png)
+
+*Simulated vessel motion, noisy position observations, and the estimated track.*
 
 </div>
 
-> **Research status:** The repository includes a working synthetic-data tracking pipeline, a constant-velocity Kalman filter with innovation gating, a 60-second motion forecast baseline, quantitative evaluation, five generated figures and automated tests. It does **not** yet contain trained neural networks or validation on real AIS datasets.
+> **Project status:** This repository implements a synthetic vessel-motion simulator, a linear Kalman tracking filter, innovation-based measurement screening, and a 60-second constant-velocity forecasting baseline. Results are reproducible for the configuration described below. **No trained neural network, real AIS ingestion, or operational maritime validation is claimed.**
+
+## Contents
+
+- [Overview](#overview)
+- [Research objectives](#research-objectives)
+- [System architecture](#system-architecture)
+- [Mathematical methodology](#mathematical-methodology)
+- [Experimental setup](#experimental-setup)
+- [Experimental results](#experimental-results)
+- [Interpretation and discussion](#interpretation-and-discussion)
+- [Installation and reproduction](#installation-and-reproduction)
+- [Repository structure](#repository-structure)
+- [Limitations and roadmap](#limitations-and-roadmap)
+- [Author and license](#author-and-license)
 
 ## Overview
 
-Vessel position measurements are noisy, may contain outliers, and do not directly provide reliable velocity estimates. This project demonstrates an end-to-end **estimation and forecasting baseline** that reconstructs a vessel's planar motion from simulated AIS-like position reports, rejects inconsistent measurements, and predicts its near-term path.
+Maritime tracking systems receive imperfect position observations. Measurement noise, sporadic corrupted readings, and changes in vessel heading make it difficult to infer a smooth trajectory and predict near-future motion. This project studies a **transparent, interpretable baseline** for those tasks in a controlled simulation.
 
-**Scope:** single-vessel, local Cartesian coordinates, simulated observations. The project is a reproducible research baseline rather than a production maritime surveillance system.
+The workflow generates a maneuvering vessel trajectory in a local East–North coordinate frame, adds Gaussian measurement noise and three deliberate position outliers, estimates vessel position and velocity using a Kalman filter, screens inconsistent measurements using the **normalized innovation squared (NIS)** statistic, and evaluates constant-velocity forecasts against the simulated ground truth.
 
-### At a glance
+### Implemented capabilities
 
-| Tracking | Forecasting | Quality control | Evaluation |
-|:--|:--|:--|:--|
-| Linear 4-state Kalman filter | 60-second constant-velocity forecast | NIS-based innovation gate | RMSE, ADE, FDE and 5 figures |
+| Component | Implementation | Status |
+|---|---|---|
+| Synthetic vessel trajectories | Smooth speed/heading variations, East–North coordinates | Implemented |
+| Noisy observations | Gaussian 2D position noise and injected outliers | Implemented |
+| State estimation | 4-state constant-velocity Kalman filter | Implemented |
+| Measurement screening | NIS threshold test and skipped inconsistent updates | Implemented |
+| Motion forecasting | Constant-velocity prediction up to 60 seconds | Implemented |
+| Evaluation | Position RMSE, ADE, FDE, NIS and speed plots | Implemented |
+| Real AIS ingestion | AIS decoding, geographic coordinates and cleaning | Planned |
+| Deep learning prediction | Trained GRU/LSTM/Transformer | Not implemented |
 
-## ✨ Highlights
+## Research objectives
 
-- **Vessel simulation:** time-stamped synthetic east/north trajectories with smooth heading changes and speed variation.
-- **State estimation:** 4-state linear Kalman filter estimates position and planar velocity from noisy observations.
-- **Anomaly screening:** normalized innovation squared (NIS) rejects statistically inconsistent position measurements.
-- **Trajectory forecasting:** constant-velocity, 60-second forecast using only the filtered state available at prediction time.
-- **Reproducibility:** fixed random seed, exported metrics/CSV, generated charts and automated tests.
+1. Recover a stable position and velocity estimate from noisy vessel observations.
+2. Assess whether innovation-based screening can reject intentionally corrupted measurements in a controlled scenario.
+3. Quantify short-horizon forecasting error using a simple, interpretable baseline.
+4. Provide a reproducible foundation for comparing more advanced motion models and learned predictors later.
 
-## System Architecture
+## System architecture
 
 ```mermaid
-flowchart LR
-    A[Simulated vessel motion] --> B[Noisy position measurements]
-    B --> C[Kalman predict]
-    C --> D{NIS gate}
-    D -->|Accepted| E[Measurement update]
-    D -->|Rejected| F[Predicted state retained]
-    E --> G[State estimate]
-    F --> G
-    G --> H[60 s forecast]
-    G --> I[Tracking metrics]
-    H --> J[ADE / FDE]
+flowchart TD
+    A[Synthetic vessel motion] --> B[Noisy AIS-like position observations]
+    B --> C[Kalman prediction step]
+    C --> D[Innovation and NIS computation]
+    D --> E{NIS above threshold?}
+    E -->|Yes| F[Skip measurement update]
+    E -->|No| G[Kalman correction]
+    F --> H[Filtered position and velocity]
+    G --> H
+    H --> I[60-second constant-velocity forecast]
+    H --> J[Tracking and NIS evaluation]
+    I --> K[ADE and FDE evaluation]
+    J --> L[CSV, JSON and figures]
+    K --> L
 ```
 
-## 📊 Experimental Results — Measured Performance
+The screening stage evaluates whether an observation is statistically consistent with the predicted state. A rejected observation is **not proof of malicious activity or abnormal vessel behavior**; it is an outlier relative to the assumed motion and noise models.
 
-The figures and metrics below were generated by running the included Python experiment, **not** by estimating performance manually. The evaluation uses one reproducible synthetic AIS-like vessel scenario (`seed=42`, 360 samples, 5-second intervals, Gaussian position noise, three injected outliers).
+## Mathematical methodology
 
-<div align="center">
+### 1. State representation
 
-| Raw measurement RMSE | Filtered position RMSE | RMSE reduction | 60 s forecast FDE |
-|:--:|:--:|:--:|:--:|
-| **45.86 m** | **21.11 m** | **53.97%** | **68.47 m** |
+The four-dimensional state vector contains planar position and velocity:
 
-</div>
+$$
+\mathbf{x}_k = \begin{bmatrix} E_k & N_k & v_{E,k} & v_{N,k} \end{bmatrix}^{\mathsf T}.
+$$
 
-### Complete quantitative evaluation
+Only position is measured:
+
+$$
+\mathbf{z}_k = \mathbf{H}\mathbf{x}_k+\mathbf{v}_k, \qquad
+\mathbf{H}=\begin{bmatrix}1&0&0&0\\0&1&0&0\end{bmatrix}.
+$$
+
+### 2. Constant-velocity process model
+
+For sample interval $\Delta t=5\ \mathrm{s}$:
+
+$$
+\mathbf{x}_{k+1}=\mathbf{F}\mathbf{x}_k+\mathbf{w}_k, \qquad
+\mathbf{F}=\begin{bmatrix}
+1&0&\Delta t&0\\
+0&1&0&\Delta t\\
+0&0&1&0\\
+0&0&0&1
+\end{bmatrix}.
+$$
+
+The process covariance is constructed from a discrete acceleration-noise model:
+
+$$
+\mathbf{Q}=\sigma_a^2\mathbf{G}\mathbf{G}^{\mathsf T},\qquad
+\mathbf{G}=\begin{bmatrix}
+\Delta t^2/2&0\\0&\Delta t^2/2\\\Delta t&0\\0&\Delta t
+\end{bmatrix}.
+$$
+
+The experiment uses $\sigma_a=0.14$ in the implementation's acceleration-noise parameterization and measurement covariance $\mathbf{R}=28^2\mathbf{I}_2\ \mathrm{m}^2$.
+
+### 3. Kalman prediction and correction
+
+**Predict:**
+
+$$
+\hat{\mathbf{x}}^-_k=\mathbf{F}\hat{\mathbf{x}}_{k-1},\qquad
+\mathbf{P}^-_k=\mathbf{F}\mathbf{P}_{k-1}\mathbf{F}^{\mathsf T}+\mathbf{Q}.
+$$
+
+**Innovation and gain:**
+
+$$
+\mathbf{y}_k=\mathbf{z}_k-\mathbf{H}\hat{\mathbf{x}}^-_k,\qquad
+\mathbf{S}_k=\mathbf{H}\mathbf{P}^-_k\mathbf{H}^{\mathsf T}+\mathbf{R},
+$$
+
+$$
+\mathbf{K}_k=\mathbf{P}^-_k\mathbf{H}^{\mathsf T}\mathbf{S}_k^{-1}.
+$$
+
+**Correct:**
+
+$$
+\hat{\mathbf{x}}_k=\hat{\mathbf{x}}^-_k+\mathbf{K}_k\mathbf{y}_k.
+$$
+
+The implementation uses the **Joseph-form covariance update** to improve numerical robustness:
+
+$$
+\mathbf{P}_k=(\mathbf{I}-\mathbf{K}_k\mathbf{H})\mathbf{P}^-_k
+(\mathbf{I}-\mathbf{K}_k\mathbf{H})^{\mathsf T}+\mathbf{K}_k\mathbf{R}\mathbf{K}_k^{\mathsf T}.
+$$
+
+### 4. Innovation-based screening
+
+The normalized innovation squared statistic is
+
+$$
+\operatorname{NIS}_k=\mathbf{y}_k^{\mathsf T}\mathbf{S}_k^{-1}\mathbf{y}_k.
+$$
+
+A measurement update is skipped when $\operatorname{NIS}_k>13.82$ after the initial four samples. This threshold approximates the 99.9th percentile of a chi-square distribution with two degrees of freedom, **assuming the model and noise statistics are correctly specified**. A high NIS indicates measurement-model inconsistency; it does not identify the physical cause.
+
+### 5. Short-horizon prediction
+
+Starting from the filtered state at time $k$, the baseline predicts future position without accessing future measurements:
+
+$$
+\hat{\mathbf{p}}_{k+h\mid k}=\hat{\mathbf{p}}_k+h\Delta t\hat{\mathbf{v}}_k,
+\qquad h=1,\ldots,12.
+$$
+
+Twelve steps at five seconds per step give a **60-second prediction horizon**. This forecast assumes approximately constant velocity and is expected to degrade during heading changes or acceleration.
+
+## Experimental setup
+
+| Setting | Value |
+|---|---:|
+| Random seed | `42` |
+| Samples | `360` |
+| Sampling interval | `5 s` |
+| Simulated duration | `1,795 s` between first and last sample |
+| Coordinate system | Local East–North, metres |
+| Measurement noise | Gaussian, `28 m` standard deviation per axis |
+| Injected corrupted observations | `3` at sample indices `85`, `185`, `270` |
+| Kalman state dimension | `4` |
+| NIS gate threshold | `13.82` |
+| Forecast horizon | `12 steps / 60 s` |
+| Forecast evaluation | Prediction origins from sample `20` onward, where 12 future steps exist |
+
+The simulated trajectory includes gradual heading and speed changes. The estimator uses a simpler constant-velocity assumption, intentionally creating model mismatch during maneuvers. The experiment is deterministic for a given seed, but **a single seed is not a statistical benchmark**.
+
+## Experimental results
+
+### Quantitative summary
 
 | Metric | Result | Interpretation |
-|:--|--:|:--|
-| Raw observation position RMSE | **45.86 m** | Error of noisy position reports relative to simulated truth |
-| Kalman position RMSE | **21.11 m** | Error of filtered 2D positions relative to simulated truth |
-| Relative RMSE reduction | **53.97%** | Improvement over unfiltered measurements in this scenario |
-| 60-second forecast ADE | **44.85 m** | Mean forecast displacement error over the forecast horizon |
-| 60-second forecast FDE | **68.47 m** | Mean final-point error at 60 seconds |
-| Injected measurement outliers | **3** | Deliberately corrupted synthetic observations |
-| NIS-gated measurements | **3** | Measurements rejected by the filter's innovation gate |
-| Sample count | **360** | One simulated vessel track |
-| Sampling interval | **5 s** | Time between consecutive observations |
+|---|---:|---|
+| Raw observation position RMSE | **45.86 m** | Error of noisy positions against simulated truth |
+| Kalman position RMSE | **21.11 m** | Error of filtered positions against simulated truth |
+| Relative RMSE reduction | **53.97%** | Improvement relative to raw-observation RMSE |
+| Raw observation RMSE, excluding injected outliers | **38.79 m** | Noise-only comparison on non-outlier samples |
+| Kalman RMSE, excluding injected outliers | **20.97 m** | Filtered comparison on the same samples |
+| Forecast ADE, 60-second horizon | **44.85 m** | Mean Euclidean forecast error across evaluated steps |
+| Forecast FDE, 60-second horizon | **68.47 m** | Mean Euclidean error at the final forecast step |
+| Injected corrupted observations | **3** | Deliberately altered position measurements |
+| Rejected measurements | **3** | Updates skipped by the NIS gate |
+| Automated tests | **3 passed** | Current test suite for the prototype |
 
-**RMSE calculation:** $\mathrm{RMSE}=\sqrt{\frac{1}{N}\sum_{k=1}^{N}\|\hat{p}_k-p_k\|_2^2}$. The relative reduction is $(45.86-21.11)/45.86\times100\%$, using full-precision values for the reported **53.97%**. ADE and FDE are computed from forecasts against simulated future positions.
+**RMSE** is defined for two-dimensional positions as
+
+$$
+\mathrm{RMSE}=\sqrt{\frac{1}{N}\sum_{k=1}^{N}\left[(\hat E_k-E_k)^2+(\hat N_k-N_k)^2\right]}.
+$$
+
+The reported relative reduction is
+
+$$
+100\left(1-\frac{21.1076}{45.8607}\right)\%\approx\mathbf{53.97\%}.
+$$
+
+For a forecast origin $k$ and horizon $H=12$, define the displacement error $d_{k,h}=\lVert\hat{\mathbf{p}}_{k+h\mid k}-\mathbf{p}_{k+h}\rVert_2$. **ADE** averages $d_{k,h}$ across all evaluated origins and forecast steps; **FDE** averages $d_{k,H}$ at the 60-second endpoint.
 
 ### Figure 1 — Vessel trajectory tracking
 
-![Simulated ground truth, noisy position observations and Kalman-filtered trajectory](01_trajectory_tracking.png)
+![Simulated vessel trajectory, observations and Kalman estimates](01_trajectory_tracking.png)
 
-The filtered track follows the vessel's underlying trajectory while reducing measurement noise. Turns and speed changes are intentionally included to test a constant-velocity model outside ideal straight-line motion.
+*The filtered path is compared with simulated ground truth and noisy position observations. The plot illustrates how sequential estimation can suppress measurement noise while tracking a maneuvering vessel.*
 
 ### Figure 2 — Position estimation error
 
-![Raw measurement and Kalman-filter position errors over time](02_position_error.png)
+![Raw observation and Kalman position errors over time](02_position_error.png)
 
-This plot compares instantaneous position errors. Individual filtered estimates can still be inaccurate during maneuvers or immediately after measurement disturbances.
+*Time-series position errors reveal both ordinary noise and the effect of injected outliers. The experiment-specific aggregate RMSE values should be interpreted alongside this temporal behavior.*
 
 ### Figure 3 — RMSE comparison
 
-![Quantitative position RMSE comparison](03_rmse_comparison.png)
+![RMSE comparison of raw observations and Kalman estimates](03_rmse_comparison.png)
 
-The main tracking result is a reduction from **45.86 m** to **21.11 m**, corresponding to **53.97% lower RMSE** in this experiment.
+*The Kalman estimate achieves 21.11 m RMSE compared with 45.86 m for raw observations, a 53.97% reduction for this simulation.*
 
 ### Figure 4 — Innovation-based measurement screening
 
 ![Normalized innovation squared and measurement gating](04_innovation_gating.png)
 
-The normalized innovation squared (NIS) is compared against a **13.82** threshold (approximately the 99.9th percentile of a chi-square distribution with two degrees of freedom). The filter gated **3 measurements** in this run; this is not a validated real-world anomaly detection rate.
+*The NIS statistic is evaluated against a fixed gate threshold. Three observations are rejected in this run; rejection counts alone do not establish a general anomaly detector's precision or recall.*
 
 ### Figure 5 — Vessel speed estimation
 
-![Simulated vessel speed and estimated speed](05_speed_estimation.png)
+![True and estimated vessel speed](05_speed_estimation.png)
 
-The filter estimates velocity from noisy position observations. Its constant-velocity assumption limits responsiveness during changes in vessel motion.
+*Speed is inferred from the estimated eastward and northward velocity components, rather than supplied as a direct position-filter measurement.*
 
-### What the results mean
+## Interpretation and discussion
 
-The experiment demonstrates that a conventional state estimator can improve position tracking and support a transparent **60-second forecasting baseline**. It does **not** demonstrate learned AI-based trajectory prediction, real AIS performance, operational collision avoidance, or generalization to different ships and environments. Further evaluation should use multiple seeds, independent trajectories and licensed real AIS datasets.
+**Noise suppression.** The filtered estimate improves 2D positional accuracy relative to unfiltered observations in the configured scenario. This demonstrates the value of sequential state estimation under the assumed motion and noise models, not a universal 53.97% improvement for maritime tracking.
 
-> **GitHub image layout:** All five PNG files are referenced directly by filename because they are stored in the **same directory as `README.md`**. Do not add `results/` to these image links.
+**Outlier handling.** Innovation gating rejects three inconsistent measurements in this run. Because the dataset contains three deliberately injected outliers, this is an encouraging sanity check, but a broader labeled evaluation would be required to establish detection sensitivity, false-positive rates, and robustness across maneuver types.
 
-## 🧠 Model and Methods
+**Forecast behavior.** The 60-second endpoint error (FDE) exceeds the average error over the forecast horizon (ADE), consistent with uncertainty and model mismatch accumulating as the prediction extends further into the future. The current predictor has no explicit turn-rate model and no learned maneuver representation.
 
-The filter estimates planar position and velocity in metres and metres per second. The tracked state is
+**Reproducibility.** The published metrics are saved in `results/metrics.json`, with per-sample observations and estimates in `results/synthetic_tracking_results.csv`. The experiment can be rerun with the command below. Results may change with different seeds, trajectories, noise settings, or algorithm parameters.
 
-```text
-x = [east_position, north_position, east_velocity, north_velocity]^T
-```
+## Installation and reproduction
 
-A constant-velocity state-space model propagates the state and covariance:
-
-```text
-x[k+1] = F x[k] + w[k]
-z[k]   = H x[k] + v[k]
-```
-
-For sample interval $\Delta t$, the constant-velocity transition matrix is
-
-$$
-F = \begin{bmatrix}
-1 & 0 & \Delta t & 0 \\
-0 & 1 & 0 & \Delta t \\
-0 & 0 & 1 & 0 \\
-0 & 0 & 0 & 1
-\end{bmatrix}, \qquad
-H = \begin{bmatrix}1&0&0&0\\0&1&0&0\end{bmatrix}.
-$$
-
-The filter performs predict/update steps using a Joseph-form covariance update. A 2D normalized innovation squared (NIS) gate (threshold 13.82, approximately the 99.9th percentile of chi-square with 2 degrees of freedom) rejects inconsistent position updates after initialization.
-
-**Forecasting baseline:** Future positions are projected from the filtered position and velocity. This is a physics-inspired **constant-velocity baseline**, not an AI-trained prediction model. It provides a measurable reference for future GRU/LSTM comparisons.
-
-## Processing and Outputs
-
-```mermaid
-flowchart TD
-    A[Synthetic AIS-like vessel observations] --> B[Position noise and injected outliers]
-    B --> C[Constant-velocity Kalman filter]
-    C --> D[NIS innovation gate]
-    D --> E[Filtered position and velocity]
-    E --> F[60-second CV trajectory forecast]
-    E --> G[Tracking RMSE and visualizations]
-    F --> H[ADE and FDE evaluation]
-    G --> I[CSV, JSON and PNG outputs]
-    H --> I
-```
-
-## Evaluation Protocol
-
-The demonstration generates **360 samples at 5-second intervals** with `seed=42`, applies Gaussian position noise, and injects three position outliers. State estimates are evaluated against the simulator's ground truth. The 60-second forecast is assessed with **average displacement error (ADE)** and **final displacement error (FDE)**.
-
-The filter uses a constant-velocity model even though the synthetic vessel can change course or speed. This deliberate model mismatch helps illustrate the limits of a simple baseline.
-
-## 🚀 Quick Start
-
-**Requirements:** Python 3.10+.
+**Requirements:** Python 3.10+ and a working Python package installer.
 
 ```bash
-# Clone your repository
 git clone https://github.com/Mates3834/Maritime-AI-Trajectory-Prediction.git
 cd Maritime-AI-Trajectory-Prediction
-
-# Create an isolated environment
 python -m venv .venv
-# Linux / macOS:
-source .venv/bin/activate
-# Windows PowerShell:
-# .venv\Scripts\Activate.ps1
-
-# Install the project and testing tools
-pip install -e .
-pip install pytest
-
-# Run the reproducible experiment
-python run_demo.py --seed 42
-
-# Run tests
-pytest -q
 ```
 
-The script regenerates figures inside `results/` (copy updated PNGs into the repository root to refresh README images) and `results/metrics.json` and exports per-sample estimates to `results/synthetic_tracking_results.csv`.
+Activate the virtual environment:
 
-## 📂 Repository Structure
+```bash
+# macOS / Linux
+source .venv/bin/activate
+
+# Windows PowerShell
+# .venv\Scripts\Activate.ps1
+```
+
+Install and execute:
+
+```bash
+python -m pip install -e .
+python -m pip install pytest
+python run_demo.py --seed 42
+python -m pytest -q
+```
+
+The script writes plots, a metrics JSON file, and a per-sample CSV file to `results/` by default. To choose a different destination:
+
+```bash
+python run_demo.py --seed 42 --output custom_results
+```
+
+To run the script without installing the package in editable mode, first ensure the `src/` directory is available on your Python import path. The editable installation shown above is the recommended route.
+
+## Repository structure
 
 ```text
 Maritime-AI-Trajectory-Prediction/
 ├── README.md
-├── 01_trajectory_tracking.png
-├── 02_position_error.png
-├── 03_rmse_comparison.png
-├── 04_innovation_gating.png
-├── 05_speed_estimation.png
 ├── LICENSE
 ├── requirements.txt
 ├── pyproject.toml
 ├── run_demo.py
+├── 01_trajectory_tracking.png        # README figures at repository root
+├── 02_position_error.png
+├── 03_rmse_comparison.png
+├── 04_innovation_gating.png
+├── 05_speed_estimation.png
 ├── src/
 │   └── maritime_ai/
 │       ├── __init__.py
@@ -221,40 +325,48 @@ Maritime-AI-Trajectory-Prediction/
 │   └── test_pipeline.py
 └── results/
     ├── metrics.json
-    └── synthetic_tracking_results.csv
+    ├── synthetic_tracking_results.csv
+    └── ... generated PNG figures
 ```
 
-## Research Extensions
+**Image path note:** The five Markdown images in this README use paths such as `![...](01_trajectory_tracking.png)`. They must be uploaded **beside `README.md` in the repository root**, not only inside `results/`. The `results/` directory can separately retain the figures generated by the experiment.
 
-Potential next steps include benchmarking across many random seeds and maneuver types, geodetic AIS preprocessing, vessel-wise train/test separation, nonlinear filters, and learned sequence models. These are **proposed extensions**, not implemented features.
+## Limitations and roadmap
 
-## 🗺️ Roadmap
+### Current limitations
 
-- [x] Reproducible synthetic maritime trajectory generator
-- [x] Kalman position and velocity estimation
-- [x] Innovation-based outlier screening
-- [x] 60-second constant-velocity prediction baseline
-- [x] Quantitative RMSE / ADE / FDE evaluation
-- [x] Five generated experiment figures
-- [x] Automated regression tests
-- [ ] Licensed, real-world AIS ingestion and geodetic coordinate conversion
-- [ ] Train/test split by vessel and time to avoid data leakage
-- [ ] GRU/LSTM models and robust multi-horizon benchmarks
-- [ ] Nonlinear motion model / EKF or UKF comparison
-- [ ] Multi-vessel encounters and risk indicators
-- [ ] Interactive vessel-traffic dashboard
+- **Synthetic-only data:** No actual AIS messages, vessel identifiers, timestamps from receivers, or geodetic coordinate transformations are processed.
+- **Single-vessel simulation:** No multi-vessel association, interactions, or collision-risk assessment.
+- **Simplified dynamics:** A constant-velocity filter and forecast cannot explicitly model sustained turns, currents, or complex maneuvers.
+- **Limited evaluation:** One default seed and scenario; no multi-seed uncertainty intervals, vessel-level generalization study, or external dataset benchmark.
+- **Measurement screening only:** NIS gating flags statistical inconsistency, not confirmed suspicious behavior.
+- **Not operational software:** No real-time guarantees, safety certification, or navigational decision support validation.
 
-## ⚠️ Limitations
+### Development roadmap
 
-This experiment uses **synthetic local-coordinate data**, not raw AIS messages. Injected position outliers are illustrative and do not represent validated detection of suspicious vessel behavior. Reported accuracy is specific to the configured scenario and should not be extrapolated to real operations. This software is not suitable for operational navigation, collision avoidance or safety-critical maritime decisions.
+- [x] Synthetic vessel trajectory and noise generation
+- [x] Linear Kalman position and velocity estimation
+- [x] NIS-based measurement screening
+- [x] 60-second constant-velocity forecast baseline
+- [x] RMSE, ADE, FDE, CSV/JSON output and five figures
+- [x] Automated prototype tests
+- [ ] Real AIS dataset ingestion with licensing and quality checks
+- [ ] Latitude/longitude to local-coordinate conversion
+- [ ] Repeated-seed experiments and confidence intervals
+- [ ] Coordinated-turn / IMM / EKF / UKF comparisons
+- [ ] GRU/LSTM and other learned forecasting baselines
+- [ ] Vessel- and time-separated evaluation to prevent data leakage
+- [ ] Multi-vessel encounter analysis and uncertainty-aware forecasts
+- [ ] Interactive research dashboard
 
-## 👨‍💻 Author
+## Author and license
 
-**Mehmet Ateş**  
-Electrical & Electronics Engineering · Control and Automation Engineering  
-Interests: maritime autonomy, robotics, estimation, control and intelligent systems  
-[GitHub profile](https://github.com/Mates3834)
+**Mehmet Ateş** — Electrical & Electronics Engineering; Control and Automation Engineering. Interests include maritime autonomy, robotics, state estimation, and intelligent systems.
 
-## 📄 License
+GitHub: [@Mates3834](https://github.com/Mates3834)
 
-MIT License — see [LICENSE](LICENSE).
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE).
+
+---
+
+<div align="center"><sub>Research prototype · Synthetic maritime data · Reproducible baseline · Not for operational navigation</sub></div>
