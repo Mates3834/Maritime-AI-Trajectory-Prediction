@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maritime-ai-trajectory-prediction"
+version = "1.0.0"
+description = "Synthetic maritime vessel tracking, Kalman estimation and trajectory forecasting baselines"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24,<3", "pandas>=2.0,<3", "matplotlib>=3.7,<4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

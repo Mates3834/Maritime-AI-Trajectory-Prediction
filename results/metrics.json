@@ -1,0 +1,15 @@
+{
+  "seed": 42,
+  "samples": 360,
+  "sample_interval_s": 5,
+  "measurement_rmse_m": 45.86074797464746,
+  "kalman_rmse_m": 21.10756367708876,
+  "measurement_rmse_clean_m": 38.78837496445612,
+  "kalman_rmse_clean_m": 20.970575134391886,
+  "gated_observations": 3,
+  "injected_outliers": 3,
+  "forecast_horizon_s": 60,
+  "ade_m": 44.84708823532264,
+  "fde_m": 68.47204415033487,
+  "rmse_reduction_pct": 53.9746632812065
+}
